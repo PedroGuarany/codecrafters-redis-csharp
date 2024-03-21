@@ -14,7 +14,6 @@ namespace codecrafters_redis.src
         private static readonly string breakLineChar = "\r\n";
         private static readonly string[] ignoredCommands = new string[] { "info", "quit" };
 
-
         public static string ToRedisSimpleString(this string value)
         {
             return $"{simpleStringChar}{value}{breakLineChar}";

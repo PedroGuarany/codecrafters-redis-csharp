@@ -2,15 +2,15 @@ using codecrafters_redis.src;
 using System.Net;
 using System.Net.Sockets;
 
-
-byte[] PONG = "PONG".ToRedisSimpleString().ToByteArray();
-string NULLBULK = "".ToBulk();
+var socketService = new SocketHandlerService();
 
 Dictionary<string, string> data = new();
 Dictionary<string, Func<List<string>, string>> commands = new()
 {
-    { "ping", (_) => SocketHandlerService.Ping()},
-    { "echo", (param) => SocketHandlerService.Echo(param) }
+    { "ping", (_) => Responses.Pong()},
+    { "echo", (args) => socketService.Echo(args) },
+    { "set", (args) => socketService.Set(args) },
+    { "get", (args) => socketService.Get(args)}
 };
 var server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
@@ -37,6 +37,7 @@ finally
     server.Stop();
 }
 
+
 void HandleSocketConnection(Socket socket)
 {
     try
@@ -44,8 +45,8 @@ void HandleSocketConnection(Socket socket)
         Console.WriteLine("Connected");
         while (socket.Connected)
         {
-            var requestInfo = SocketHandlerService.GetRequestInfo(socket);
-            byte[]? response = PONG;
+            var requestInfo = socketService.GetRequestInfo(socket);
+            byte[]? response = Responses.Pong().ToByteArray();
 
             if (requestInfo.Count < 1 || !commands.ContainsKey(requestInfo[0]))
             {
