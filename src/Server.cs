@@ -2,13 +2,19 @@ using codecrafters_redis.src;
 using System.Net;
 using System.Net.Sockets;
 
-string PONG = "PONG".ToRedisSimpleString();
 
-var callbackQueue = new Queue<Action>();
-Console.WriteLine("Program started!");
+byte[] PONG = "PONG".ToRedisSimpleString().ToByteArray();
+string NULLBULK = "".ToBulk();
 
+Dictionary<string, string> data = new();
+Dictionary<string, Func<List<string>, string>> commands = new()
+{
+    { "ping", (_) => SocketHandlerService.Ping()},
+    { "echo", (param) => SocketHandlerService.Echo(param) }
+};
 var server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
+Console.WriteLine("Program started!");
 
 try
 {
@@ -38,31 +44,24 @@ void HandleSocketConnection(Socket socket)
         Console.WriteLine("Connected");
         while (socket.Connected)
         {
-            var bytes = new byte[256];
-            var byteSize = socket.Receive(bytes, SocketFlags.None);
+            var requestInfo = SocketHandlerService.GetRequestInfo(socket);
+            byte[]? response = PONG;
 
-            if (byteSize == 0) break;
-
-            string request = System.Text.Encoding.ASCII.GetString(bytes, 0, byteSize);
-            var requestInfo = request.FromResp();
-            byte[]? response = PONG.ToByteArray();
-
-            if (requestInfo.Find(r => r.ToLower().Equals("ping")) != null)
+            if (requestInfo.Count < 1 || !commands.ContainsKey(requestInfo[0]))
             {
-                response = PONG.ToByteArray();
+                socket.Send(response, SocketFlags.None);
+                continue;
             }
-            else if (requestInfo.Find(r => r.ToLower().Equals("echo")) != null)
+
+            var command = commands.GetValueOrDefault(requestInfo[0]);
+            if (command is null)
             {
-                if (requestInfo.Count >= 2)
-                {
-                    var bulkRequestEcho = requestInfo[1].ToBulk();
-                    response = bulkRequestEcho.ToByteArray();
-                }
-                else {
-                    response = "Invalid params".ToRedisSimpleString().ToByteArray();
-                }
+                socket.Send(response, SocketFlags.None);
+                continue;
             }
-            
+
+
+            response = command(requestInfo).ToByteArray();
             socket.Send(response, SocketFlags.None);
         }
     }

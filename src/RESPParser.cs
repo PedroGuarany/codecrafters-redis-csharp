@@ -13,6 +13,8 @@ namespace codecrafters_redis.src
         private static readonly string simpleStringChar = "+";
         private static readonly string breakLineChar = "\r\n";
         private static readonly string[] ignoredCommands = new string[] { "info", "quit" };
+
+
         public static string ToRedisSimpleString(this string value)
         {
             return $"{simpleStringChar}{value}{breakLineChar}";
@@ -20,7 +22,8 @@ namespace codecrafters_redis.src
 
         public static string ToBulk(this string value)
         {
-            return $"${value.Length}{breakLineChar}{value}{breakLineChar}";
+            var length = value.Length > 0 ? value.Length : -1;
+            return $"${length}{(length > 0 ? breakLineChar : "")}{value}{breakLineChar}";
         }
 
         public static List<string> FromResp(this string value)
