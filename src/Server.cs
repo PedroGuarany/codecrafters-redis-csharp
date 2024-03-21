@@ -6,35 +6,25 @@ Console.WriteLine("Program started!");
 
 var server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
-//server.AcceptSocket();
 
 try
 {
     var bytes = new byte[256];
-    while (true)
+    using var socket = server.AcceptSocket();
+    while (socket.Connected)
     {
-        Console.WriteLine("Waiting for connection...");
-        // Perform a blocking call to accept requests.
-        // You could also use server.AcceptSocket() here.
-        using TcpClient client = server.AcceptTcpClient();
-        Console.WriteLine("Connected!");
+        var byteSize = await socket.ReceiveAsync(bytes, SocketFlags.None);
 
-        var stream = client.GetStream();
+        if (byteSize == 0) break;
 
+        string request = System.Text.Encoding.ASCII.GetString(bytes, 0, byteSize);
+        request = request.ToUpper();
+        Console.WriteLine("Received: {0}", request);
 
-        // Loop to receive all the data sent by the client.
-        var byteSize = 0;
-        while ((byteSize = stream.Read(bytes, 0, bytes.Length)) != 0)
-        {
-            string request = System.Text.Encoding.ASCII.GetString(bytes, 0, byteSize);
-            request = request.ToUpper();
-            Console.WriteLine("Received: {0}", request);
+        var response = System.Text.Encoding.ASCII.GetBytes(PONG);
 
-            var response = System.Text.Encoding.ASCII.GetBytes(PONG);
-
-            stream.Write(response, 0, response.Length);
-            Console.WriteLine("Sent: {0}", response);
-        }
+        await socket.SendAsync(response, SocketFlags.None);
+        Console.WriteLine("Sent: {0}", response);
     }
 }
 catch (SocketException e)
