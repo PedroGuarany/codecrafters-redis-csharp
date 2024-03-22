@@ -9,7 +9,7 @@ namespace codecrafters_redis.src
 {
     public class SocketHandlerService
     {
-        private readonly Dictionary<string, string> data = new();
+        private readonly Dictionary<string, Value<string>> data = new();
 
 
         public List<string> GetRequestInfo(Socket socket)
@@ -39,13 +39,17 @@ namespace codecrafters_redis.src
 
             var alreadyExists = data.TryGetValue(args[1], out var oldValue);
 
+            var newValue = args.Find(a => a.ToLower().Equals("px")) != null
+                    ? new Value<string>(args[2], Convert.ToDouble(args[4])) 
+                    : new Value<string>(args[2]);
+
             if (alreadyExists)
             {
-                data[args[1]] = data[args[2]];
+                data[args[1]] = newValue;
             }
             else
             {
-                data.TryAdd(args[1], args[2]);
+                data.TryAdd(args[1], newValue);
             }
             response = Responses.Ok();
 
@@ -54,13 +58,15 @@ namespace codecrafters_redis.src
 
         public string Get(List<string> args)
         {
-            var response = "Invalid params".ToRedisSimpleString();
-            if (args.Count < 2) return response;
+            if (args.Count < 2) return "Invalid params".ToRedisSimpleString(); ;
 
             var found = data.TryGetValue(args[1], out var foundValue);
-            response = found ? foundValue!.ToBulk() : Responses.NULLBUCK();
 
-            return response;
+            if (!found) return Responses.NULLBUCK();
+
+            if (foundValue!.ExpiresIn is not null && foundValue.ExpiresIn < DateTime.UtcNow) return Responses.NULLBUCK();
+
+            return foundValue!.value.ToBulk();
         }
     }
 }
